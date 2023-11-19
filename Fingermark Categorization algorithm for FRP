@@ -1,0 +1,94 @@
+import tensorflow as tf
+import numpy as np
+from numpy import asarray
+import pandas as pd
+import os
+import matplotlib.pyplot as plt
+import cv2
+
+
+
+def rgb2gray(rgb):
+    return np.dot(rgb[...,:3], [0.2989, 0.5870, 0.1140])
+
+
+path = '/content/drive/MyDrive/images_FRP/'
+
+
+mobilenet = tf.keras.applications.mobilenet_v2.MobileNetV2()
+
+
+class_0 = []
+class_1 = []
+class_2 = []
+class_3 = []
+class_4 = []
+classes = [class_0, class_1, class_2, class_3, class_4]
+train_images = []
+train_labels = []
+test_images = []
+test_labels = []
+dimensions = (400, 400)
+
+i = 0
+for class1 in os.listdir(path):
+  class_path = path + "/" + class1
+  a = 1
+  for image in os.listdir(class_path):
+    classes[i].append(plt.imread(class_path + "/" + image))
+    pixels = asarray(rgb2gray(cv2.resize(plt.imread(class_path + "/" + image), dimensions)))
+    pixels = pixels/255.0
+    stopper = a / len(os.listdir(class_path))
+    if stopper <= 0.9:
+      train_images.append(pixels)
+      train_labels.append(i)
+    else:
+      test_images.append(pixels)
+      test_labels.append(i)
+    a = a + 1
+  i = i + 1
+
+
+train_images_arr = np.array(train_images)
+train_labels_arr = np.array(train_labels)
+test_images_arr = np.array(test_images)
+test_labels_arr = np.array(test_labels)
+
+train_labels_arr = train_labels_arr.astype('uint8')
+test_labels_arr = test_labels_arr.astype('uint8')
+
+
+model = tf.keras.Sequential([
+    tf.keras.layers.Flatten(input_shape=(400, 400)),
+    tf.keras.layers.Dense(400, activation='relu'),
+    tf.keras.layers.Dense(400, activation='relu'),
+    tf.keras.layers.Dense(400, activation='relu'),
+    tf.keras.layers.Dense(400, activation='relu'),
+    tf.keras.layers.Dense(400, activation='relu'),
+    tf.keras.layers.Dense(400, activation='relu'),
+    tf.keras.layers.Dense(5)
+])
+model.compile(optimizer='adam',
+              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+              metrics=['accuracy'])
+
+model.fit(train_images_arr, train_labels_arr, epochs=20)
+
+test_loss, test_acc = model.evaluate(test_images_arr,  test_labels_arr, verbose=2)
+print('\nTest accuracy:', test_acc)
+
+probability_model = tf.keras.Sequential([model,
+                                         tf.keras.layers.Softmax()])
+
+predictions = probability_model.predict(test_images_arr)
+
+o = 0
+while o < 54:
+  print(np.argmax(predictions[o]))
+
+  o = o + 1
+
+o = 0
+while o < 54:
+  print(test_labels_arr[o])
+  o = o + 1
